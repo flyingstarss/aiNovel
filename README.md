@@ -1,49 +1,5 @@
 # Athor Novel Studio
 
-## 注意：`.env.example` 无法上传时
-
-`.env.example` 是点开头的隐藏文件，GitHub 网页上传、部分客户端或压缩工具可能直接忽略它。遇到这种情况，任选一种方式：
-
-1. 在项目根目录手动新建 `.env`，把下面的模板原样粘贴进去；
-2. 或把 `.env.example` 重命名为 `env.example` 再上传，部署时再改回 `.env`。
-
-```ini
-# ===== 模型服务（必填）=====
-DEEPSEEK_API_KEY=your_api_key_here
-DEEPSEEK_MODEL=deepseek-v4-flash
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-
-# ===== MySQL（必填）=====
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=your_password_here
-DB_NAME=novel_world
-DB_CHARSET=utf8mb4
-DB_POOL_SIZE=5
-
-# ===== 服务 =====
-APP_HOST=127.0.0.1
-APP_PORT=8000
-DATA_DIR=data
-LOG_DIR=logs
-
-# ===== 模型参数（可选）=====
-LLM_MAX_TOKENS=8192
-LLM_STREAM_CHUNK_TIMEOUT=0
-LLM_MAX_RETRIES=3
-LLM_TEMP_EDITOR=0.8
-LLM_TEMP_WRITER=0.8
-LLM_TEMP_REVIEWER=0.2
-LLM_TEMP_SUMMARY=0.2
-LLM_TEMP_HUMANIZER=0.35
-LLM_CONCURRENCY=3
-```
-
-填写真实密钥后，不要把 `.env` 提交到仓库（`.gitignore` 已排除）。
-
----
-
 一个基于 DeepSeek 的 AI 长篇小说创作工作台。从一句需求出发，自动完成世界观、大纲、分卷、地图、伏笔、短纲、章纲与正文，并在写作过程中执行字数、违规、一致性、文风与 AI 味审核。
 
 前端为原生 HTML/JS，后端为 FastAPI + MySQL，全部生成过程通过 SSE 流式返回，可实时看到模型输出。
@@ -104,6 +60,13 @@ pip install -r requirements.txt
 
 ### 3. 配置
 
+`.env.example` 是点开头的隐藏文件，GitHub 网页上传、部分客户端或压缩工具可能直接忽略它。遇到这种情况，任选一种方式：
+
+1. 在项目根目录手动新建 `.env`，把下面的模板原样粘贴进去；
+2. 或把 `.env.example` 重命名为 `env.example` 再上传，部署时再改回 `.env`。
+
+如果文件能正常复制，也可以直接执行：
+
 ```bash
 # Windows
 copy .env.example .env
@@ -111,15 +74,42 @@ copy .env.example .env
 cp .env.example .env
 ```
 
-编辑 `.env`，至少填写：
+完整配置模板：
 
 ```ini
-DEEPSEEK_API_KEY=你的密钥
+# ===== 模型服务（必填）=====
+DEEPSEEK_API_KEY=your_api_key_here
+DEEPSEEK_MODEL=deepseek-v4-flash
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+
+# ===== MySQL（必填）=====
+DB_HOST=127.0.0.1
+DB_PORT=3306
 DB_USER=root
-DB_PASSWORD=你的数据库密码
+DB_PASSWORD=your_password_here
+DB_NAME=novel_world
+DB_CHARSET=utf8mb4
+DB_POOL_SIZE=5
+
+# ===== 服务 =====
+APP_HOST=127.0.0.1
+APP_PORT=8000
+DATA_DIR=data
+LOG_DIR=logs
+
+# ===== 模型参数（可选）=====
+LLM_MAX_TOKENS=8192
+LLM_STREAM_CHUNK_TIMEOUT=0
+LLM_MAX_RETRIES=3
+LLM_TEMP_EDITOR=0.8
+LLM_TEMP_WRITER=0.8
+LLM_TEMP_REVIEWER=0.2
+LLM_TEMP_SUMMARY=0.2
+LLM_TEMP_HUMANIZER=0.35
+LLM_CONCURRENCY=3
 ```
 
-其余参数保持默认即可。
+至少填写 `DEEPSEEK_API_KEY`、`DB_USER`、`DB_PASSWORD`，其余保持默认即可。填写真实密钥后，不要把 `.env` 提交到仓库（`.gitignore` 已排除）。
 
 ### 4. 初始化数据库
 
