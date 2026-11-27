@@ -1,0 +1,2012 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小说生成工作台</title>
+<style>
+  :root {
+    --bg: #f1f5fb; --card: #ffffff; --ink: #0f172a; --muted: #64748b;
+    --line: #e3e9f3; --brand: #2563eb; --brand-dark: #1d4ed8;
+    --ok: #15803d; --warn: #b45309; --danger: #b91c1c;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    margin: 0; display: flex; background: var(--bg); color: var(--ink);
+    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #c8d4e4; border-radius: 999px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  /* ---------------- 侧边栏：会话列表 ---------------- */
+  .sidebar {
+    width: 274px; flex: 0 0 274px; height: 100vh; position: sticky; top: 0;
+    display: flex; flex-direction: column; gap: 14px; padding: 20px 14px;
+    background: linear-gradient(180deg, #0b1729 0%, #122b47 58%, #0d2136 100%);
+    color: #e6eefb;
+  }
+  .brand { display: flex; align-items: center; gap: 11px; padding: 2px 6px 8px; }
+  .logo {
+    width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center;
+    background: linear-gradient(135deg, #3b82f6, #22c55e);
+    font-size: 18px; font-weight: 700; color: #fff;
+    box-shadow: 0 8px 18px rgba(37, 99, 235, .38);
+  }
+  .brand h1 { margin: 0; font-size: 16px; letter-spacing: .5px; }
+  .brand p { margin: 3px 0 0; font-size: 11.5px; color: #90a6c6; }
+  .sidebar button.primary {
+    width: 100%; padding: 10px 14px; border-radius: 10px; font-size: 13px;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff;
+    box-shadow: 0 8px 16px rgba(37, 99, 235, .3);
+  }
+  .sidebar button.primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  }
+  .session-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 6px; font-size: 12px; color: #8ea4c4; letter-spacing: .4px;
+  }
+  .session-head .icon {
+    padding: 2px 7px; font-size: 14px; background: transparent; color: #8ea4c4;
+  }
+  .session-head .icon:hover:not(:disabled) { color: #fff; background: rgba(255,255,255,.08); }
+  .session-list {
+    flex: 1; overflow-y: auto; display: flex; flex-direction: column;
+    gap: 6px; padding-right: 2px;
+  }
+  .session-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); }
+  .session-item {
+    width: 100%; display: flex; flex-direction: column; gap: 5px; text-align: left;
+    padding: 10px 11px; border-radius: 10px; color: #dbe6f7;
+    background: transparent; border: 1px solid transparent;
+  }
+  .session-item:hover:not(:disabled) { background: rgba(255,255,255,.07); }
+  .session-item.active {
+    background: rgba(59,130,246,.2); border-color: rgba(96,165,250,.55);
+    box-shadow: inset 3px 0 0 #60a5fa;
+  }
+  .session-item .t {
+    font-size: 13px; font-weight: 600; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .session-item .s {
+    font-size: 11.5px; color: #93a9c9; display: flex; align-items: center; gap: 6px;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: #64748b; }
+  .dot.running { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+  .dot.pending { background: #f59e0b; }
+  .dot.done { background: #60a5fa; }
+  .session-empty { font-size: 12px; color: #7f95b5; padding: 8px 6px; }
+  .sidebar-foot {
+    font-size: 11.5px; color: #7f95b5; line-height: 1.6;
+    border-top: 1px solid rgba(255,255,255,.08); padding: 10px 6px 0;
+  }
+
+  /* ---------------- 主工作区 ---------------- */
+  .workspace { flex: 1; min-width: 0; height: 100vh; display: flex; flex-direction: column; }
+  .topbar {
+    flex: none;
+    display: flex; align-items: center; gap: 14px; padding: 13px 26px;
+    background: rgba(255,255,255,.86); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line); z-index: 5;
+  }
+  .topbar h1 { margin: 0; font-size: 16px; }
+  .topbar .sub { margin-top: 3px; font-size: 12px; color: var(--muted); }
+  .topbar .spacer { flex: 1; }
+  .reader-link {
+    font-size: 12.5px; color: #1e3a5f; background: #eef3fa;
+    padding: 7px 13px; border-radius: 7px; text-decoration: none;
+    transition: background .15s;
+  }
+  .reader-link:hover { background: #e2ebf7; }
+  .session-badge {
+    font-size: 12px; padding: 5px 12px; border-radius: 999px;
+    background: #e8eefb; color: #1d4ed8; white-space: nowrap;
+  }
+  main {
+    flex: 1; min-height: 0; overflow: hidden;
+    display: grid; gap: 14px; padding: 14px 26px 18px;
+    grid-template-columns: minmax(0, 1.02fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas:
+      "outline chapter";
+  }
+  .outline-panel { grid-area: outline; }
+  .chapter-panel { grid-area: chapter; }
+
+  @media (max-height: 840px) and (min-width: 1101px) {
+    main {
+      grid-template-rows: minmax(0, 1fr);
+      gap: 10px; padding: 10px 20px 14px;
+    }
+    .panel { padding: 12px 14px; gap: 7px; }
+    .topbar { padding: 10px 20px; }
+  }
+
+  @media (max-width: 1100px) {
+    html, body { overflow: auto; }
+    body { flex-direction: column; }
+    .sidebar { width: auto; flex: none; height: auto; position: static; }
+    .session-list { flex-direction: row; overflow-x: auto; padding-bottom: 4px; }
+    .session-item { min-width: 200px; }
+    .workspace { height: auto; }
+    .topbar { padding: 13px 16px; }
+    main {
+      display: flex; flex-direction: column; overflow: visible;
+      padding: 14px 16px 28px;
+    }
+    .panel { overflow: visible; min-height: auto; }
+    .output { max-height: 55vh; }
+  }
+
+  .panel {
+    background: var(--card); border-radius: var(--radius); padding: 15px 16px;
+    border: 1px solid rgba(226,232,240,.9);
+    box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 10px 26px rgba(15,23,42,.05);
+    display: flex; flex-direction: column; gap: 9px;
+    min-height: 0; overflow-y: auto;
+  }
+  .outline-panel, .chapter-panel { overflow-y: auto; }
+  .panel > h2, .panel > .row, .panel > .status,
+  .panel > .meta, .panel > .chips, .panel > .scene-box { flex: none; }
+  .panel h2 {
+    margin: 0; font-size: 15px; color: #17324f; font-weight: 600;
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  }
+  .tag { font-size: 12px; font-weight: 400; color: var(--muted); }
+  textarea {
+    width: 100%; min-height: 70px; resize: vertical; padding: 10px 12px;
+    border: 1px solid #d7e0ec; border-radius: 10px; font: inherit; font-size: 13px;
+    line-height: 1.65; outline: none; background: #fcfdff; color: var(--ink);
+  }
+  textarea:focus { border-color: #93b4f5; box-shadow: 0 0 0 3px rgba(59,130,246,.13); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  button {
+    border: 0; border-radius: 9px; padding: 8px 16px; font-size: 13px;
+    cursor: pointer; background: var(--brand-dark); color: #fff; transition: .15s;
+  }
+  button:hover:not(:disabled) { background: #1e40af; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.ghost { background: #eef2f8; color: #334155; }
+  button.ghost:hover:not(:disabled) { background: #e2e8f2; }
+  button.ok { background: var(--ok); }
+  button.ok:hover:not(:disabled) { background: #166534; }
+  button.danger { background: var(--danger); }
+  button.danger:hover:not(:disabled) { background: #991b1b; }
+  .output {
+    background: #fbfcfe; border: 1px solid #e2e8f0; border-radius: 10px;
+    padding: 12px 14px; font-size: 13.5px; line-height: 1.85;
+    white-space: pre-wrap; word-break: break-word;
+    min-height: 120px; flex: 1 1 auto; overflow-y: auto;
+    font-family: inherit;
+  }
+  textarea.output { height: auto; }
+  .outline-panel .output, .chapter-panel .output { min-height: 120px; }
+  .output:empty::before { content: "等待生成…"; color: #9aa8ba; }
+  .status { font-size: 12.5px; color: var(--muted); min-height: 18px; }
+  .status.err { color: var(--danger); }
+  .status.ok { color: var(--ok); }
+  .badge {
+    display: inline-block; padding: 3px 9px; border-radius: 999px;
+    font-size: 12px; margin-left: 6px; font-weight: 400;
+  }
+  .badge.pending { background: #fef3c7; color: #92400e; }
+  .badge.pass { background: #dcfce7; color: #166534; }
+  .badge.fail { background: #fee2e2; color: #991b1b; }
+  .meta { font-size: 12.5px; color: #475569; line-height: 1.7; }
+  input[type="text"] {
+    flex: 1; min-width: 180px; padding: 9px 11px; font-size: 13px;
+    border: 1px solid #d7e0ec; border-radius: 9px; outline: none; background: #fcfdff;
+  }
+  input[type="text"]:focus { border-color: #93b4f5; box-shadow: 0 0 0 3px rgba(59,130,246,.13); }
+  .result {
+    border: 1px solid #e2e8f0; border-radius: 10px; padding: 11px 13px;
+    font-size: 12.5px; line-height: 1.75; background: #fbfcfe; display: none;
+    white-space: pre-wrap; max-height: 40vh; overflow-y: auto;
+  }
+  /* ---------------- 设定集弹窗 ---------------- */
+  .modal-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .modal-tabs button {
+    padding: 6px 12px; font-size: 12.5px;
+    background: #eef2f8; color: #334155;
+  }
+  .modal-tabs button.active { background: var(--brand); color: #fff; }
+  .modal-head .grow { flex: 1; }
+  .settings-modal { width: min(1000px, 96vw); max-height: 88vh; }
+  .settings-modal .modal-body { display: block; }
+  .setting-card {
+    border: 1px solid #e2e8f0; border-radius: 10px; padding: 11px 13px;
+    margin-bottom: 10px; background: #fff;
+    font-size: 13px; line-height: 1.75; white-space: pre-wrap;
+  }
+  .setting-card .name {
+    font-weight: 600; color: #17324f; margin-bottom: 5px;
+    white-space: normal;
+  }
+  .setting-card .kv { color: #334155; }
+  .setting-card .kv b { color: #64748b; font-weight: 400; }
+  .bar { height: 10px; background: #e6edf6; border-radius: 999px; overflow: hidden; }
+  .progress-bar-row { flex-wrap: nowrap; align-items: center; }
+  .progress-bar-row .bar { flex: 1; }
+  .progress-bar-row button { padding: 6px 12px; font-size: 12px; white-space: nowrap; }
+  .progress-panel, .usage-panel { padding: 13px 15px; gap: 7px; }
+  .progress-panel .recent, .usage-panel .recent { min-height: 40px; }
+  .bar > div {
+    height: 100%; width: 0;
+    background: linear-gradient(90deg, #2563eb, #22c55e);
+    transition: width .5s ease;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chips span {
+    background: #eef3fa; color: #334155; border-radius: 7px;
+    padding: 4px 10px; font-size: 12.5px;
+  }
+  .scene-box {
+    display: flex; flex-direction: column; gap: 8px;
+    border: 1px dashed #c7d6ea; border-radius: 8px; padding: 12px;
+    background: #f8fbff;
+  }
+  .scene-list { display: flex; flex-direction: column; gap: 8px; }
+  .scene-list button {
+    text-align: left; background: #fff; color: #1e3a5f;
+    border: 1px solid #d6dee9; line-height: 1.6; white-space: normal;
+  }
+  .scene-list button:hover:not(:disabled) { background: #eef4ff; }
+  .recent {
+    font-size: 12.5px; color: #475569; line-height: 1.8;
+    max-height: none; flex: 1 1 auto; min-height: 54px; overflow-y: auto;
+  }
+  .recent .item {
+    display: flex; gap: 12px; border-bottom: 1px dashed #e2e8f0;
+    padding: 3px 0; flex-wrap: wrap;
+  }
+  .recent .item:last-child { border-bottom: 0; }
+  .recent .ok { color: var(--ok); }
+  .recent .no { color: var(--warn); }
+
+  .session-item { cursor: pointer; font: inherit; }
+  .session-item .hist {
+    margin-left: auto; font-size: 10.5px; padding: 1px 7px; border-radius: 5px;
+    background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16);
+    flex: none;
+  }
+  .session-item .hist:hover { background: rgba(255,255,255,.24); }
+  .session-item .sid {
+    font-family: ui-monospace, Consolas, monospace; font-size: 10.5px;
+    color: #7f95b5; letter-spacing: -.2px;
+  }
+
+  .modal-mask {
+    position: fixed; inset: 0; z-index: 60; display: flex;
+    align-items: center; justify-content: center; padding: 24px;
+    background: rgba(8, 18, 32, .55); backdrop-filter: blur(2px);
+  }
+  .modal {
+    width: min(780px, 100%); max-height: 84vh; background: #fff;
+    border-radius: 14px; display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 26px 70px rgba(0, 0, 0, .3);
+  }
+  .modal-head {
+    padding: 16px 20px; border-bottom: 1px solid #e6edf6;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  }
+  .modal-head h3 { margin: 0 0 4px; font-size: 16px; color: #1e3a5f; }
+  .modal-head .meta { font-size: 12px; color: #64748b; word-break: break-all; }
+  .modal-body {
+    padding: 16px 20px 22px; overflow-y: auto; background: #f8fafd;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .msg { display: flex; gap: 10px; align-items: flex-start; }
+  .msg .role {
+    flex: none; width: 42px; height: 24px; line-height: 24px; text-align: center;
+    border-radius: 6px; font-size: 11px; background: #e8eef7; color: #3b5a80;
+  }
+  .msg.user .role { background: #dbeafe; color: #1d4ed8; }
+  .msg.assistant .role { background: #dcfce7; color: #15803d; }
+  .msg.system .role { background: #fef3c7; color: #92400e; }
+  .msg .bubble {
+    flex: 1; background: #fff; border: 1px solid #e6edf6; border-radius: 10px;
+    padding: 9px 12px; font-size: 13px; line-height: 1.75; color: #334155;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .msg .time { font-size: 10.5px; color: #94a3b8; margin-top: 4px; }
+  .modal-empty { text-align: center; color: #94a3b8; font-size: 13px; padding: 30px 0; }
+  .stats-modal { width: min(820px, 100%); max-height: 86vh; }
+  .stats-modal .modal-body { gap: 14px; }
+  .stats-modal .panel {
+    background: #fff; border: 1px solid #e6edf6; border-radius: 12px;
+    box-shadow: none; padding: 14px 16px; overflow: visible; min-height: 0;
+  }
+  .stats-modal .panel .recent { max-height: 26vh; overflow-y: auto; }
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="brand">
+    <div class="logo">墨</div>
+    <div>
+      <h1>小说创作台</h1>
+      <p>多会话工作区</p>
+    </div>
+  </div>
+  <button id="btn-new-session" class="primary">＋ 新建会话</button>
+  <div class="session-head">
+    <span>历史会话</span>
+    <button id="btn-refresh-sessions" class="icon" title="刷新列表">↻</button>
+  </div>
+  <div class="session-list" id="session-list">
+    <div class="session-empty">加载中…</div>
+  </div>
+  <div class="sidebar-foot" id="sidebar-foot">选择一个会话开始创作</div>
+</aside>
+
+<div class="workspace">
+<header class="topbar">
+  <div>
+    <h1 id="current-session-title">未选择会话</h1>
+    <div class="sub">大纲流式生成 · 人工审核 · 正文流式续写 · 违规与一致性审核</div>
+  </div>
+  <div class="spacer"></div>
+  <span class="session-badge" id="session-info">会话：初始化中…</span>
+  <button id="btn-stats" class="ghost">进度与用量</button>
+  <button id="btn-session-history" class="ghost">当前会话记录</button>
+  <button id="btn-settings" class="ghost">设定集</button>
+  <button id="btn-download" class="ghost">下载小说</button>
+  <a class="reader-link" id="link-reader" href="/reader" target="_blank" rel="noopener">历史章节</a>
+</header>
+
+<main>
+  <!-- 大纲 -->
+  <section class="panel outline-panel">
+    <h2>① 小说大纲 <span class="tag" id="outline-tag">未生成</span></h2>
+    <textarea id="prompt" placeholder="填写小说需求，也可以只写一个开头，例如：主角是魔法学院里的一名学徒……（系统会以此为起点，把故事扩展到学院之外的世界）"></textarea>
+    <div class="row">
+      <button id="btn-outline">流式生成大纲</button>
+      <button id="btn-save-outline" class="ghost" disabled>保存修改</button>
+      <button id="btn-approve" class="ok" disabled>审核通过</button>
+      <button id="btn-reject" class="danger" disabled>驳回</button>
+      <button id="btn-import-txt" class="ghost">导入TXT生成</button>
+      <input type="file" id="file-txt" accept=".txt,text/plain" style="display:none">
+    </div>
+    <div class="row">
+      <input type="text" id="review-comment" placeholder="审核意见（驳回时建议填写）">
+    </div>
+    <div class="status" id="outline-status"></div>
+    <textarea class="output" id="outline-out" spellcheck="false" placeholder="大纲生成后可在此直接编辑，保存后会重新解析结构并回到待审核状态。"></textarea>
+  </section>
+
+  <!-- 正文 -->
+  <section class="panel chapter-panel">
+    <h2>② 小说正文 <span class="tag" id="chapter-tag">读取中…</span></h2>
+    <div class="meta" id="chapter-meta">正在读取下一章章纲…</div>
+    <div class="row">
+      <button id="btn-write">流式写下一章</button>
+      <button id="btn-summary" class="ghost" disabled>生成摘要</button>
+      <button id="btn-audit" class="ghost" disabled>审核本章</button>
+      <button id="btn-rewrite" class="ghost" disabled>按审核意见重写</button>
+      <button id="btn-polish-again" class="ghost" style="display:none">再润色一轮</button>
+    </div>
+    <div class="status" id="chapter-status"></div>
+    <div class="scene-box" id="scene-box" style="display:none">
+      <div class="meta">请先选择本段（3 章）的剧情走向，选定后开始写作：</div>
+      <div class="row" id="segment-note-row">
+        <input type="text" id="segment-note" placeholder="补充你的想法（可选），写手会参考你的输入来写">
+        <button id="btn-segment-note" class="ghost">按我的想法写</button>
+        <button id="btn-segment-regen" class="ghost">按想法重新出方向</button>
+      </div>
+      <div class="scene-list" id="scene-options"></div>
+      <button id="btn-skip-scene" class="ghost">跳过，直接写</button>
+    </div>
+    <pre class="output" id="chapter-out"></pre>
+    <div class="result" id="chapter-result"></div>
+  </section>
+</main>
+</div>
+
+<div class="modal-mask" id="stats-mask" style="display:none">
+  <div class="modal stats-modal">
+    <div class="modal-head">
+      <div>
+        <h3>进度与用量</h3>
+        <div class="meta">撰写进度与 LLM 调用统计，每 4 秒自动刷新</div>
+      </div>
+      <button id="btn-close-stats" class="ghost">关闭</button>
+    </div>
+    <div class="modal-body">
+      <!-- 进度 -->
+      <section class="panel progress-panel">
+        <h2>③ 撰写进度 <span class="tag" id="progress-stage">读取中…</span></h2>
+        <div class="row progress-bar-row">
+          <div class="bar"><div id="progress-fill"></div></div>
+          <button id="btn-structure" class="ghost" disabled>补全结构</button>
+        </div>
+        <div class="meta" id="structure-progress"></div>
+        <div class="chips" id="progress-counts"></div>
+        <div class="meta" id="progress-next">等待数据…</div>
+        <div class="recent" id="progress-recent"></div>
+      </section>
+
+      <!-- 用量监控 -->
+      <section class="panel usage-panel">
+        <h2>④ 用量监控 <span class="tag" id="usage-total">0 tokens</span></h2>
+        <div class="chips" id="usage-totals"></div>
+        <div class="meta">每一步的 token 消耗与耗时，同时写入 logs/llm_usage.log</div>
+        <div class="recent" id="usage-steps"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="history-mask" style="display:none">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h3 id="history-title">会话记录</h3>
+        <div class="meta" id="history-meta"></div>
+      </div>
+      <button id="btn-close-history" class="ghost">关闭</button>
+    </div>
+    <div class="modal-body" id="history-body"></div>
+  </div>
+</div>
+
+<div class="modal-mask" id="settings-mask" style="display:none">
+  <div class="modal settings-modal">
+    <div class="modal-head">
+      <h3>设定集</h3>
+      <div class="modal-tabs" id="settings-tabs">
+        <button data-tab="world" class="active">世界观</button>
+        <button data-tab="persons">人物</button>
+        <button data-tab="places">地图</button>
+        <button data-tab="foreshadow">伏笔</button>
+      </div>
+      <div class="grow"></div>
+      <button id="btn-close-settings" class="ghost">关闭</button>
+    </div>
+    <div class="modal-body" id="settings-body"></div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+let outlineId = null;
+let novelChapterId = null;
+let chapterOutlineId = null;
+let lastAuditIssues = "";
+let lastContentIssues = "";
+let lastAiIssues = "";
+let busyOutline = false;
+let busyChapter = false;
+let sessionId = null;
+let sessions = [];
+
+function statusDot(status) {
+  const s = String(status || "");
+  if (s.includes("写作") || s.includes("进行中")) return "running";
+  if (s.includes("完成")) return "done";
+  if (s.includes("待")) return "pending";
+  return "";
+}
+
+function fmtTime(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return String(value).slice(0, 16).replace("T", " ");
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getMonth() + 1}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function sessionTitle(s) {
+  if (!s) return "未命名会话";
+  if (s.title && s.title !== "未命名会话") return s.title;
+  return s.outline_title || s.title || "未命名会话";
+}
+
+function sessionStatus(s) {
+  if (!s || !s.outline_id) return "未开始";
+  return s.status || "未开始";
+}
+
+function renderSessions() {
+  const box = $("session-list");
+  if (!sessions.length) {
+    box.innerHTML = '<div class="session-empty">暂无会话，点击上方新建。</div>';
+    return;
+  }
+  box.innerHTML = sessions.map((s) => {
+    const active = s.session_id === sessionId ? " active" : "";
+    const status = sessionStatus(s);
+    const dot = statusDot(status);
+    return `<div class="session-item${active}" data-id="${esc(s.session_id)}">` +
+      `<div class="t">${esc(sessionTitle(s))}</div>` +
+      `<div class="s"><span class="dot ${dot}"></span>${esc(status)}` +
+      ` · ${esc(fmtTime(s.update_time || s.create_time))}` +
+      ` · <code class="sid">${esc(String(s.session_id).slice(0, 8))}</code>` +
+      `<span class="hist" data-hist="${esc(s.session_id)}" title="查看该会话的对话记录">记录</span>` +
+      `</div></div>`;
+  }).join("");
+  box.querySelectorAll(".session-item").forEach((el) => {
+    el.onclick = () => switchSession(el.dataset.id);
+  });
+  box.querySelectorAll(".hist").forEach((el) => {
+    el.onclick = (e) => {
+      e.stopPropagation();
+      openSessionHistory(el.dataset.hist);
+    };
+  });
+}
+
+async function openSessionHistory(id) {
+  if (!id) return;
+  $("history-mask").style.display = "flex";
+  $("history-title").textContent = "会话记录";
+  $("history-meta").textContent = "会话 ID：" + id;
+  $("history-body").innerHTML = '<div class="modal-empty">正在读取…</div>';
+  try {
+    const resp = await fetch(
+      `/api/sessions/${encodeURIComponent(id)}/messages`
+    );
+    if (!resp.ok) throw new Error("会话记录读取失败");
+    const d = await resp.json();
+    const s = d.session || {};
+    const realId = s.session_id || id;
+    const msgs = d.messages || [];
+    $("history-title").textContent = sessionTitle(s);
+    $("history-meta").textContent =
+      `会话 ID：${realId} · ${sessionStatus(s)} · 共 ${msgs.length} 条` +
+      (s.outline_title ? ` · 小说：${s.outline_title}` : "");
+    const roleName = { user: "用户", assistant: "助手", system: "系统" };
+    const list = msgs.map((m) =>
+      `<div class="msg ${esc(m.role)}">` +
+      `<span class="role">${roleName[m.role] || esc(m.role)}</span>` +
+      `<div class="bubble">${esc(m.content)}` +
+      `<div class="time">${esc(fmtTime(m.create_time))}</div></div></div>`
+    );
+    $("history-body").innerHTML =
+      list.join("") || '<div class="modal-empty">该会话暂无对话记录</div>';
+    $("history-body").scrollTop = $("history-body").scrollHeight;
+  } catch (e) {
+    $("history-body").innerHTML =
+      `<div class="modal-empty">${esc(e.message)}</div>`;
+  }
+}
+
+function closeSessionHistory() {
+  $("history-mask").style.display = "none";
+}
+
+$("btn-close-history").onclick = closeSessionHistory;
+$("history-mask").addEventListener("click", (e) => {
+  if (e.target === $("history-mask")) closeSessionHistory();
+});
+
+function openStats() {
+  $("stats-mask").style.display = "flex";
+  refreshProgress();
+  refreshUsage();
+}
+function closeStats() {
+  $("stats-mask").style.display = "none";
+}
+$("btn-stats").onclick = openStats;
+$("btn-close-stats").onclick = closeStats;
+$("stats-mask").addEventListener("click", (e) => {
+  if (e.target === $("stats-mask")) closeStats();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    closeSessionHistory();
+    closeStats();
+  }
+});
+$("btn-session-history").onclick = () => {
+  if (sessionId) openSessionHistory(sessionId);
+};
+
+async function loadSessions() {
+  try {
+    const resp = await fetch("/api/sessions?limit=50");
+    const data = await resp.json();
+    sessions = Array.isArray(data) ? data : [];
+    renderSessions();
+    const cur = sessions.find((s) => s.session_id === sessionId);
+    if (cur) {
+      $("current-session-title").textContent = sessionTitle(cur);
+      $("session-info").textContent = "会话：" + sessionId.slice(0, 8) +
+        " · " + sessionStatus(cur);
+      if (cur.message) $("sidebar-foot").textContent = cur.message;
+    }
+  } catch (e) {
+    $("session-list").innerHTML =
+      `<div class="session-empty">列表读取失败：${esc(e.message)}</div>`;
+  }
+  return sessions;
+}
+
+function updateOutlineButtonState() {
+  const has = !!outlineId;
+  $("btn-outline").textContent = has ? "修改大纲" : "流式生成大纲";
+  $("prompt").placeholder = has
+    ? "填写修改大纲的意见，例如：把主角身份改成……；世界观再增加一个……"
+    : "填写小说需求，也可以只写一个开头，例如：主角是魔法学院里的一名学徒……（系统会以此为起点，把故事扩展到学院之外的世界）";
+}
+
+function resetPanels() {
+  $("outline-out").value = "";
+  $("outline-tag").textContent = outlineId ? "读取中…" : "未生成";
+  $("btn-save-outline").disabled = true;
+  $("btn-approve").disabled = true;
+  $("btn-reject").disabled = true;
+  updateOutlineButtonState();
+  $("chapter-out").textContent = "";
+  $("chapter-result").style.display = "none";
+  $("chapter-tag").textContent = "读取中…";
+  $("chapter-meta").textContent = "正在读取下一章章纲…";
+  $("btn-summary").disabled = true;
+  $("btn-audit").disabled = true;
+  $("btn-rewrite").disabled = true;
+  $("segment-note").value = "";
+  showBorderlineButtons(null);
+  hideScenes();
+  setStatus($("outline-status"), "");
+  setStatus($("chapter-status"), "");
+}
+
+function syncReaderLink() {
+  $("link-reader").href =
+    "/reader" + (outlineId ? "?outline_id=" + outlineId : "");
+}
+
+async function switchSession(id) {
+  if (!id || id === sessionId) return;
+  if (busyOutline || busyChapter || busyStructure) {
+    alert("正在生成中，请等待当前任务结束后再切换会话。");
+    return;
+  }
+  sessionId = id;
+  const row = sessions.find((s) => s.session_id === id) || null;
+  outlineId = (row && row.outline_id) || null;
+  syncReaderLink();
+  novelChapterId = (row && row.current_novel_chapter_id) || null;
+  chapterOutlineId = (row && row.current_chapter_id) || null;
+  pendingResume = false;
+  lastAuditIssues = "";
+  resetPanels();
+  renderSessions();
+  $("current-session-title").textContent = row ? sessionTitle(row) : "未选择会话";
+  $("session-info").textContent = "会话：" + id.slice(0, 8) + " · " +
+    sessionStatus(row);
+  $("sidebar-foot").textContent =
+    (row && row.message) || "大纲生成后会自动保存到该会话";
+  $("prompt").value = (row && row.userinput) || "";
+  await loadOutline();
+  await Promise.all([refreshProgress(), refreshNextChapter()]);
+  await loadLatestChapter();
+  refreshUsage();
+}
+
+async function createSession(title) {
+  try {
+    const resp = await fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userinput: "", title: title || "新会话" }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || "创建失败");
+    await loadSessions();
+    await switchSession(data.session_id);
+    return data.session_id;
+  } catch (e) {
+    $("session-info").textContent = "会话创建失败：" + e.message;
+    return null;
+  }
+}
+
+async function renameSessionIfNeeded(userinput) {
+  if (!sessionId) return;
+  const row = sessions.find((s) => s.session_id === sessionId);
+  const title = (row && row.title) || "";
+  if (title && !["新会话", "未命名会话"].includes(title)) return;
+  const newTitle = (userinput || "").trim().slice(0, 30);
+  if (!newTitle) return;
+  try {
+    await fetch("/api/sessions/" + sessionId, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: newTitle }),
+    });
+    await loadSessions();
+    $("current-session-title").textContent = newTitle;
+  } catch (e) {
+    /* 重命名失败不影响创作流程 */
+  }
+}
+
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g,
+  (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m]));
+
+async function loadOutline() {
+  if (!outlineId) return;
+  try {
+    const resp = await fetch("/api/outline/" + outlineId);
+    if (!resp.ok) return;
+    const d = await resp.json();
+    $("outline-out").value = d.content || "";
+    const badge = d.status === "已通过" ? "pass"
+      : (d.status === "已驳回" ? "fail" : "pending");
+    $("outline-tag").innerHTML =
+      `<span class="badge ${badge}">${esc(d.status || "待审核")}</span>`;
+    $("btn-save-outline").disabled = !d.content;
+    $("btn-approve").disabled = d.status === "已通过";
+    $("btn-reject").disabled = d.status === "已通过";
+    updateOutlineButtonState();
+    if (d.status === "待审核") {
+      setStatus($("outline-status"),
+        d.review_comment ? "审核意见：" + d.review_comment : "大纲待审核，可直接编辑后保存。");
+    } else if (d.status === "已通过" && !d.content) {
+      setStatus($("outline-status"), "该大纲生成于旧版本，暂无原文可编辑。");
+    }
+  } catch (e) {
+    /* 静默失败，不影响主流程 */
+  }
+}
+
+async function refreshProgress() {
+  const url = "/api/progress" +
+    (sessionId ? "?session_id=" + encodeURIComponent(sessionId) : "");
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) return;
+    const p = await resp.json();
+    const c = p.counts || {};
+    if (outlineId && !busyOutline && !$("outline-out").value.trim()) {
+      await loadOutline();
+    }
+    $("btn-structure").disabled =
+      !p.outline_id || (c.written || 0) > 0 || p.outline_status !== "已通过";
+    $("progress-stage").textContent = p.stage + "（" + (p.percent || 0) + "%）";
+    $("progress-fill").style.width = Math.max(0, Math.min(100, p.percent || 0)) + "%";
+    $("progress-counts").innerHTML = [
+      `分卷 ${c.volumes || 0}`,
+      `短纲 ${c.shorts || 0}`,
+      `章纲 ${c.chapters || 0}`,
+      `已写 ${c.written || 0}`,
+      `已摘要 ${c.summarized || 0}`,
+    ].map((t) => `<span>${t}</span>`).join("");
+
+    if (p.next_chapter) {
+      const n = p.next_chapter;
+      $("progress-next").textContent =
+        `下一章：第 ${n.volume_no} 卷 · 第 ${n.chapter_no} 章《${n.title || "未命名"}》` +
+        `（目标 ${n.target_words || 2500} 字）`;
+    } else if ((c.chapters || 0) > 0) {
+      $("progress-next").textContent = p.next_volume_no
+        ? `第 ${p.next_volume_no} 卷待准备，上一卷写完后自动生成该卷细纲。`
+        : (c.written >= c.chapters ? "全部章节已完成。" : "暂无待写章节。");
+    } else {
+      $("progress-next").textContent = "尚未生成章纲。";
+    }
+
+    const recent = (p.recent || []).map((r) => {
+      const sum = r.has_summary
+        ? '<span class="ok">已摘要</span>'
+        : '<span class="no">未摘要</span>';
+      return `<div class="item"><span>第${r.volume_no}卷·第${r.chapter_no}章</span>` +
+        `<span>${esc(r.title || "未命名")}</span>` +
+        `<span>${r.word_count || 0} 字</span>${sum}</div>`;
+    }).join("");
+    $("progress-recent").innerHTML =
+      recent || '<span style="color:#9aa8ba">暂无已写章节</span>';
+  } catch (e) {
+    $("progress-stage").textContent = "进度读取失败";
+  }
+}
+
+async function refreshUsage() {
+  try {
+    const resp = await fetch("/api/usage?limit=30");
+    if (!resp.ok) return;
+    const d = await resp.json();
+    const t = d.totals || {};
+    $("usage-total").textContent = `${t.total_tokens || 0} tokens`;
+    const chips = [
+      `输入 ${t.prompt_tokens || 0}`,
+      `输出 ${t.completion_tokens || 0}`,
+      `LLM 调用 ${t.llm_calls || 0} 次`,
+      `累计耗时 ${((t.duration_ms || 0) / 1000).toFixed(1)} 秒`,
+    ];
+    $("usage-totals").innerHTML =
+      chips.map((c) => `<span>${esc(c)}</span>`).join("");
+    const steps = (d.steps || []).map((s) =>
+      `<div class="item"><span>${esc(s.time)}</span>` +
+      `<span>${esc(s.name)}</span>` +
+      `<span>${s.duration_ms} ms</span>` +
+      `<span>${s.total_tokens} tokens（${s.prompt_tokens} 输入 / ${s.completion_tokens} 输出）</span></div>`
+    ).join("");
+    $("usage-steps").innerHTML =
+      steps || '<span style="color:#9aa8ba">暂无调用记录</span>';
+  } catch (e) {
+    // 监控面板失败不影响主流程
+  }
+}
+
+let busyStructure = false;
+let structStageIdx = -1;
+let structStart = 0;
+let structTimer = null;
+
+const STRUCT_STAGES = [
+  ["volume", "分卷"], ["short", "短纲"], ["chapter", "章纲"],
+  ["map", "地图"], ["foreshadow", "伏笔"],
+];
+
+function renderStructureProgress(failed) {
+  if (!structStart) { $("structure-progress").textContent = ""; return; }
+  const sec = Math.floor((Date.now() - structStart) / 1000);
+  const mm = String(Math.floor(sec / 60)).padStart(2, "0");
+  const ss = String(sec % 60).padStart(2, "0");
+  const mark = (i) => {
+    if (structStageIdx >= STRUCT_STAGES.length) return "✓";
+    if (i < structStageIdx) return "✓";
+    if (i === structStageIdx) return "▶";
+    return "·";
+  };
+  const text = STRUCT_STAGES
+    .map(([key, name], i) => `${name} ${mark(i)}`)
+    .join("  ｜  ");
+  $("structure-progress").textContent =
+    `结构生成：${text}    已用时 ${mm}:${ss}` + (failed ? "（已中断）" : "");
+}
+
+async function generateStructure() {
+  if (busyStructure) return;
+  busyStructure = true;
+  $("btn-approve").disabled = true;
+  $("btn-reject").disabled = true;
+  $("btn-write").disabled = true;
+  setStatus($("outline-status"), "审核已通过，正在生成分卷、短纲、章纲…");
+  structStart = Date.now();
+  structStageIdx = 0;
+  clearInterval(structTimer);
+  renderStructureProgress(false);
+  structTimer = setInterval(() => renderStructureProgress(false), 1000);
+  try {
+    await streamPost("/api/structure/stream",
+      { session_id: sessionId, outline_id: outlineId }, (ev) => {
+        if (ev.type === "stage") {
+          const idx = STRUCT_STAGES.findIndex(([k]) => k === ev.stage);
+          if (idx >= 0) structStageIdx = idx;
+          renderStructureProgress(false);
+          setStatus($("outline-status"), ev.message);
+          refreshProgress();
+        } else if (ev.type === "done") {
+          structStageIdx = STRUCT_STAGES.length;
+          clearInterval(structTimer);
+          renderStructureProgress(false);
+          setStatus($("outline-status"), "小说结构生成完成，可以开始写正文。", "ok");
+          refreshProgress();
+          refreshNextChapter();
+          loadSessions();
+        } else if (ev.type === "error") {
+          clearInterval(structTimer);
+          renderStructureProgress(true);
+          setStatus($("outline-status"), "结构生成失败：" + ev.message, "err");
+        }
+      });
+  } catch (e) {
+    clearInterval(structTimer);
+    renderStructureProgress(true);
+    setStatus($("outline-status"), "结构生成请求失败：" + e.message, "err");
+  } finally {
+    busyStructure = false;
+  }
+}
+
+$("btn-structure").onclick = () => {
+  if (!outlineId) { alert("请先生成大纲并通过审核"); return; }
+  generateStructure();
+};
+
+$("btn-new-session").onclick = async () => {
+  if (busyOutline || busyChapter || busyStructure) {
+    alert("正在生成中，请等待当前任务结束后再新建会话。");
+    return;
+  }
+  $("prompt").value = "";
+  $("review-comment").value = "";
+  await createSession("新会话");
+};
+
+$("btn-refresh-sessions").onclick = async () => {
+  await loadSessions();
+};
+
+$("btn-download").onclick = async () => {
+  if (!outlineId) { alert("请先生成大纲并写出章节"); return; }
+  try {
+    const resp = await fetch("/api/library/download?outline_id=" + outlineId);
+    if (!resp.ok) {
+      const d = await resp.json().catch(() => ({}));
+      throw new Error(d.detail || "下载失败");
+    }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const row = sessions.find((s) => s.session_id === sessionId);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = sessionTitle(row) + ".txt";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert("下载失败：" + e.message);
+  }
+};
+
+let settingsData = null;
+let settingsTab = "world";
+
+function openSettings() {
+  if (!outlineId) { alert("请先生成大纲，设定集会在结构与人物生成后出现"); return; }
+  $("settings-mask").style.display = "flex";
+  loadSettings();
+}
+
+function closeSettings() {
+  $("settings-mask").style.display = "none";
+}
+
+async function loadSettings() {
+  const body = $("settings-body");
+  body.innerHTML = '<div class="modal-empty">正在读取设定…</div>';
+  try {
+    const resp = await fetch("/api/library/settings?outline_id=" + outlineId);
+    const d = await resp.json();
+    if (!resp.ok) throw new Error(d.detail || "读取失败");
+    settingsData = d;
+    renderSettings();
+  } catch (e) {
+    body.innerHTML = "";
+    body.appendChild(emptyTip("读取失败：" + e.message));
+  }
+}
+
+function emptyTip(text) {
+  const div = document.createElement("div");
+  div.className = "modal-empty";
+  div.textContent = text;
+  return div;
+}
+
+function settingCard(title, kv) {
+  const card = document.createElement("div");
+  card.className = "setting-card";
+  const h = document.createElement("div");
+  h.className = "name";
+  h.textContent = title;
+  card.appendChild(h);
+  (kv || []).forEach(([label, value]) => {
+    if (value === null || value === undefined || String(value).trim() === "") return;
+    const p = document.createElement("div");
+    p.className = "kv";
+    if (label) {
+      const b = document.createElement("b");
+      b.textContent = label + "：";
+      p.appendChild(b);
+    }
+    p.appendChild(document.createTextNode(String(value)));
+    card.appendChild(p);
+  });
+  return card;
+}
+
+function renderSettings() {
+  const body = $("settings-body");
+  body.innerHTML = "";
+  const d = settingsData || {};
+  if (settingsTab === "world") {
+    const w = d.worldview;
+    if (!w) { body.appendChild(emptyTip("还没有生成世界观。生成大纲时会自动生成。")); return; }
+    [
+      ["所处时空", "spacetime"], ["世界规则", "rule"], ["地理生态", "geoEco"],
+      ["既往历史", "history"], ["人群分类", "populace"], ["权力架构", "socPower"],
+      ["经济日常", "econLife"], ["文化与信仰", "culture"], ["能力体系", "powerSys"],
+    ].forEach(([label, key]) => {
+      if (w[key]) body.appendChild(settingCard(label, [["", w[key]]]));
+    });
+  } else if (settingsTab === "persons") {
+    const persons = d.persons || [];
+    if (!persons.length) { body.appendChild(emptyTip("还没有生成人物档案。")); return; }
+    persons.forEach((p) => {
+      const who = [p.gender, p.age ? p.age + " 岁" : ""].filter(Boolean).join("，");
+      body.appendChild(settingCard(
+        p.name + (who ? `（${who}）` : ""),
+        [
+          ["外貌", p.appear], ["性格", p.charTr], ["处境", p.situat],
+          ["能力", p.ability], ["目标", p.goal], ["关系", p.relation],
+          ["当前状态", p.current_state], ["所在地点", p.current_location],
+        ]
+      ));
+    });
+    const rels = d.relations || [];
+    if (rels.length) {
+      body.appendChild(settingCard(
+        "人物关系",
+        rels.map((r) => [
+          "",
+          `${r.name_a} ↔ ${r.name_b}：${r.relation_desc}（${r.relation_type || "未标注"}）`,
+        ])
+      ));
+    }
+  } else if (settingsTab === "places") {
+    const places = d.places || [];
+    if (!places.length) { body.appendChild(emptyTip("还没有生成地图地点。")); return; }
+    places.forEach((p) => {
+      body.appendChild(settingCard(
+        p.name + (p.type ? `（${p.type}）` : ""),
+        [
+          ["上级地点", p.parent_name && p.parent_name !== "无" ? p.parent_name : ""],
+          ["所属区域", p.region], ["描述", p.description], ["地貌", p.terrain],
+          ["气候", p.climate], ["资源", p.resources], ["居住势力", p.inhabitants],
+          ["剧情作用", p.story_function], ["关联事件", p.related_events],
+        ]
+      ));
+    });
+  } else if (settingsTab === "foreshadow") {
+    const list = d.foreshadows || [];
+    if (!list.length) { body.appendChild(emptyTip("还没有生成伏笔。")); return; }
+    list.forEach((f) => {
+      body.appendChild(settingCard(
+        f.name + (f.importance ? `（${f.importance}）` : ""),
+        [
+          ["状态", f.status], ["内容", f.content], ["埋设位置", f.plant_place],
+          ["揭晓位置", f.reveal_place], ["回收方式", f.payoff],
+        ]
+      ));
+    });
+  }
+}
+
+$("btn-settings").onclick = openSettings;
+$("btn-close-settings").onclick = closeSettings;
+$("settings-mask").addEventListener("click", (e) => {
+  if (e.target === $("settings-mask")) closeSettings();
+});
+$("settings-tabs").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-tab]");
+  if (!btn) return;
+  settingsTab = btn.dataset.tab;
+  Array.from($("settings-tabs").children).forEach((b) => {
+    b.classList.toggle("active", b === btn);
+  });
+  renderSettings();
+});
+
+$("btn-import-txt").onclick = () => {
+  if (busyOutline) { alert("正在生成中，请稍候再导入"); return; }
+  $("file-txt").click();
+};
+
+$("file-txt").onchange = async (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  const fd = new FormData();
+  fd.append("file", file);
+  setStatus($("outline-status"), "正在读取 " + file.name + "…");
+  try {
+    const resp = await fetch("/api/outline/import", { method: "POST", body: fd });
+    const d = await resp.json();
+    if (!resp.ok) throw new Error(d.detail || "读取失败");
+    const prefix = "请依据以下素材创作一部小说，可自行扩展世界观与剧情，不要照抄原文：\n\n";
+    $("prompt").value = prefix + d.text;
+    setStatus($("outline-status"),
+      `已读取 ${d.filename}（${d.chars} 字${d.truncated ? "，已截取前 12000 字" : ""}）。` +
+      (outlineId ? "可点击「修改大纲」作为参考，或新建会话后生成大纲。" : "正在据此生成世界观与大纲…"),
+      "ok");
+    if (!outlineId) {
+      await generateOutline($("prompt").value.trim());
+    }
+  } catch (err) {
+    setStatus($("outline-status"), "TXT 读取失败：" + err.message, "err");
+  }
+};
+
+async function streamPost(url, body, onEvent) {
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok || !resp.body) {
+    throw new Error(await resp.text());
+  }
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf("\n\n")) !== -1) {
+      const block = buf.slice(0, idx);
+      buf = buf.slice(idx + 2);
+      for (const line of block.split("\n")) {
+        if (!line.startsWith("data:")) continue;
+        const payload = JSON.parse(line.slice(5).trim());
+        onEvent(payload);
+      }
+    }
+  }
+}
+
+function setStatus(el, text, cls) {
+  el.textContent = text || "";
+  el.className = "status" + (cls ? " " + cls : "");
+}
+
+/* ---------------- 大纲 ---------------- */
+$("btn-outline").onclick = async () => {
+  const userinput = $("prompt").value.trim();
+  if (!userinput) {
+    alert(outlineId ? "请先填写修改大纲的意见" : "请先填写小说需求");
+    return;
+  }
+  if (busyOutline) return;
+  if (outlineId) {
+    await reviseOutline(userinput);
+    return;
+  }
+  await generateOutline(userinput);
+};
+
+async function ensureSession() {
+  if (sessionId) return true;
+  const id = await createSession("新会话");
+  return !!id;
+}
+
+async function generateOutline(userinput) {
+  if (!userinput) { alert("请先填写小说需求"); return; }
+  if (busyOutline) return;
+  if (!(await ensureSession())) return;
+  await renameSessionIfNeeded(userinput);
+  busyOutline = true;
+  outlineId = null;
+  lastAuditIssues = "";
+  $("btn-outline").disabled = true;
+  $("btn-approve").disabled = true;
+  $("btn-reject").disabled = true;
+  $("btn-save-outline").disabled = true;
+  $("outline-out").value = "";
+  $("outline-tag").innerHTML = '<span class="badge pending">生成中</span>';
+  setStatus($("outline-status"), "正在生成大纲，内容将实时输出…");
+
+  try {
+    await streamPost("/api/outline/stream", { userinput, session_id: sessionId }, (ev) => {
+      if (ev.type === "delta") {
+        $("outline-out").value += ev.text;
+        $("outline-out").scrollTop = $("outline-out").scrollHeight;
+      } else if (ev.type === "stage") {
+        setStatus($("outline-status"), ev.message);
+      } else if (ev.type === "done") {
+        outlineId = ev.outline_id;
+        syncReaderLink();
+        updateOutlineButtonState();
+        $("outline-tag").innerHTML = '<span class="badge pending">待审核</span>';
+        setStatus($("outline-status"),
+          `大纲已生成并入库（id=${ev.outline_id}），可直接编辑后保存，再审核。`, "ok");
+        $("btn-approve").disabled = false;
+        $("btn-reject").disabled = false;
+        $("btn-save-outline").disabled = false;
+        refreshProgress();
+        loadSessions();
+      } else if (ev.type === "error") {
+        setStatus($("outline-status"), "生成失败：" + ev.message, "err");
+      }
+    });
+  } catch (e) {
+    setStatus($("outline-status"), "请求失败：" + e.message, "err");
+  } finally {
+    busyOutline = false;
+    $("btn-outline").disabled = false;
+    updateOutlineButtonState();
+  }
+}
+
+async function reviseOutline(comment) {
+  if (!outlineId) return;
+  if (busyOutline) return;
+  busyOutline = true;
+  lastAuditIssues = "";
+  $("btn-outline").disabled = true;
+  $("btn-approve").disabled = true;
+  $("btn-reject").disabled = true;
+  $("btn-save-outline").disabled = true;
+  $("outline-out").value = "";
+  $("outline-tag").innerHTML = '<span class="badge pending">修改中</span>';
+  setStatus($("outline-status"), "正在按修改意见重写大纲，内容将实时输出…");
+
+  try {
+    await streamPost("/api/outline/revise/stream",
+      { outline_id: outlineId, comment, session_id: sessionId }, (ev) => {
+      if (ev.type === "delta") {
+        $("outline-out").value += ev.text;
+        $("outline-out").scrollTop = $("outline-out").scrollHeight;
+      } else if (ev.type === "stage") {
+        setStatus($("outline-status"), ev.message);
+      } else if (ev.type === "done") {
+        outlineId = ev.outline_id;
+        syncReaderLink();
+        $("outline-tag").innerHTML = '<span class="badge pending">待审核</span>';
+        setStatus($("outline-status"),
+          "大纲已按意见修改并保存，请确认后重新审核。", "ok");
+        $("btn-approve").disabled = false;
+        $("btn-reject").disabled = false;
+        $("btn-save-outline").disabled = false;
+        refreshProgress();
+        loadSessions();
+      } else if (ev.type === "error") {
+        setStatus($("outline-status"), "修改失败：" + ev.message, "err");
+      }
+    });
+  } catch (e) {
+    setStatus($("outline-status"), "修改请求失败：" + e.message, "err");
+  } finally {
+    busyOutline = false;
+    $("btn-outline").disabled = false;
+    updateOutlineButtonState();
+  }
+}
+
+async function review(decision) {
+  if (!outlineId) { alert("请先生成大纲"); return; }
+  const comment = $("review-comment").value.trim();
+  try {
+    const resp = await fetch("/api/outline/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ outline_id: outlineId, decision, comment, session_id: sessionId }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || "审核失败");
+    const passed = decision === "通过";
+    $("outline-tag").innerHTML =
+      `<span class="badge ${passed ? "pass" : "fail"}">${data.status}</span>`;
+    setStatus($("outline-status"),
+      passed ? "审核通过，可以进入分卷与正文生成。" : "已驳回，请修改需求后重新生成。",
+      passed ? "ok" : "err");
+    $("btn-approve").disabled = true;
+    $("btn-reject").disabled = true;
+    $("btn-save-outline").disabled = true;
+    refreshProgress();
+    loadSessions();
+    if (passed) generateStructure();
+  } catch (e) {
+    setStatus($("outline-status"), "审核失败：" + e.message, "err");
+  }
+}
+$("btn-approve").onclick = () => review("通过");
+$("btn-reject").onclick = () => review("驳回");
+
+$("btn-save-outline").onclick = async () => {
+  if (!outlineId) { alert("请先生成大纲"); return; }
+  const content = $("outline-out").value.trim();
+  if (!content) { alert("大纲内容为空"); return; }
+  const comment = $("review-comment").value.trim();
+  $("btn-save-outline").disabled = true;
+  setStatus($("outline-status"), "正在保存并重新解析大纲结构…");
+  try {
+    const resp = await fetch("/api/outline/" + outlineId, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content, comment, session_id: sessionId }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || "保存失败");
+    $("outline-tag").innerHTML = '<span class="badge pending">待审核</span>';
+    setStatus($("outline-status"),
+      "已保存修改，结构已重新解析并回到待审核状态，请确认后再次审核。", "ok");
+    $("btn-approve").disabled = false;
+    $("btn-reject").disabled = false;
+    $("btn-structure").disabled = true;
+    refreshProgress();
+    loadSessions();
+  } catch (e) {
+    setStatus($("outline-status"), "保存失败：" + e.message, "err");
+    $("btn-save-outline").disabled = false;
+  }
+};
+
+/* ---------------- 正文 ---------------- */
+let pendingResume = false;
+let currentSegment = null;
+
+async function refreshNextChapter() {
+  if (!outlineId) {
+    pendingResume = false;
+    currentSegment = null;
+    $("chapter-tag").textContent = "未开始";
+    $("chapter-meta").textContent = "当前会话尚未生成大纲。";
+    $("btn-write").disabled = true;
+    return;
+  }
+  try {
+    const resp = await fetch("/api/chapter/next?outline_id=" + outlineId);
+    const data = await resp.json();
+    if (!data.has_next) {
+      $("chapter-tag").textContent = "已完成";
+      $("chapter-meta").textContent = "当前会话暂无可写章节（章纲未生成或已全部完成）。";
+      $("btn-write").disabled = true;
+      pendingResume = false;
+      currentSegment = null;
+      return;
+    }
+    pendingResume = false;
+    hideScenes();
+    $("btn-write").textContent = "写下一章";
+    chapterOutlineId = data.chapter_outline_id;
+    if (data.mode === "draft") {
+      pendingResume = true;
+      chapterOutlineId = data.chapter_outline_id;
+      currentSegment = data.segment || null;
+      $("chapter-tag").textContent = "草稿";
+      $("chapter-meta").textContent =
+        `检测到第 ${data.chapter_no} 章《${data.title || "未命名"}》草稿，` +
+        `已写 ${data.draft_words || 0} 字，可从断点继续。` +
+        segmentSuffix(data.segment);
+      $("chapter-out").textContent = data.draft_content || "";
+      $("btn-write").textContent = "续写本章";
+      $("btn-write").disabled = false;
+      return;
+    }
+    $("chapter-tag").textContent = `第 ${data.volume_no} 卷`;
+    currentSegment = data.segment || null;
+    if (currentSegment) {
+      renderSegmentMeta(data);
+    } else {
+      $("chapter-meta").textContent =
+        `下一章：第 ${data.chapter_no} 章《${data.title || "未命名"}》` +
+        `（${data.volume_title || ""}，目标 ${data.target_words || 2500} 字）`;
+    }
+    $("btn-write").disabled = false;
+  } catch (e) {
+    $("chapter-meta").textContent = "读取章节失败：" + e.message;
+  }
+}
+
+async function loadLatestChapter() {
+  if (!outlineId || pendingResume) return;
+  try {
+    const resp = await fetch("/api/library/latest?outline_id=" + outlineId);
+    if (!resp.ok) return;
+    const d = await resp.json();
+    if (!d.has_chapter || !d.chapter) return;
+    const c = d.chapter;
+    novelChapterId = c.id;
+    chapterOutlineId = c.chapter_outline_id;
+    $("chapter-out").textContent = c.content || "";
+    $("chapter-tag").textContent = "最近生成";
+    $("chapter-meta").textContent =
+      `最近生成：第 ${c.chapter_no} 章《${c.title || "未命名"}》，${c.word_count || 0} 字` +
+      `（第 ${c.volume_no} 卷）。点击「写下一章」继续写作。`;
+    $("btn-summary").disabled = false;
+    $("btn-audit").disabled = false;
+    $("btn-rewrite").disabled = true;
+  } catch (e) {
+    /* 读取失败不影响写下一章 */
+  }
+}
+
+let busyVolume = false;
+
+async function ensureNextVolume() {
+  if (busyVolume) return;
+  const url = "/api/progress" +
+    (sessionId ? "?session_id=" + encodeURIComponent(sessionId) : "");
+  let p;
+  try {
+    p = await (await fetch(url)).json();
+  } catch (e) {
+    return;
+  }
+  if (p.next_chapter || !p.next_volume_no) return;
+
+  busyVolume = true;
+  $("btn-write").disabled = true;
+  setStatus($("chapter-status"),
+    `第 ${p.next_volume_no} 卷正文已完成，正在生成该卷细纲、人物与章纲…`);
+  try {
+    await streamPost("/api/volume/stream",
+      { session_id: sessionId, outline_id: p.outline_id, volume_no: p.next_volume_no },
+      (ev) => {
+        if (ev.type === "stage") {
+          setStatus($("chapter-status"), ev.message);
+        } else if (ev.type === "error") {
+          setStatus($("chapter-status"), "准备下一卷失败：" + ev.message, "err");
+        }
+      });
+    setStatus($("chapter-status"), `第 ${p.next_volume_no} 卷已就绪，可以继续写作。`, "ok");
+  } catch (e) {
+    setStatus($("chapter-status"), "准备下一卷请求失败：" + e.message, "err");
+  } finally {
+    busyVolume = false;
+    refreshProgress();
+    refreshNextChapter();
+  }
+}
+
+async function startWriting(sceneChoice) {
+  if (busyChapter) return;
+  busyChapter = true;
+  hideScenes();
+  novelChapterId = null;
+  lastAuditIssues = "";
+  $("btn-write").disabled = true;
+  $("btn-summary").disabled = true;
+  $("btn-audit").disabled = true;
+  $("btn-rewrite").disabled = true;
+  showBorderlineButtons(null);
+  if (!pendingResume) {
+    $("chapter-out").textContent = "";
+  }
+  $("chapter-result").style.display = "none";
+  setStatus($("chapter-status"),
+    pendingResume ? "正在从草稿断点继续写作…" : "正在写作，正文将实时输出…");
+
+  try {
+    await streamPost("/api/chapter/stream",
+      {
+        rewrite: false,
+        resume: pendingResume,
+        chapter_outline_id: pendingResume ? chapterOutlineId : null,
+        outline_id: outlineId,
+        scene_choice: sceneChoice || "",
+        session_id: sessionId,
+      },
+      (ev) => {
+      if (ev.type === "delta") {
+        $("chapter-out").textContent += ev.text;
+        $("chapter-out").scrollTop = $("chapter-out").scrollHeight;
+      } else if (ev.type === "replace") {
+        $("chapter-out").textContent = "";
+        setStatus($("chapter-status"), "正在重写本章…");
+      } else if (ev.type === "audit") {
+        const reasons = chapterAuditReasons(ev);
+        if (reasons.length) {
+          showChapterIssues("本轮审核未通过，正在自动重写。原因如下：", reasons);
+        }
+        setStatus($("chapter-status"),
+          reasons.length
+            ? "字数或审核未通过，准备自动重写…"
+            : `内容审核通过（${ev.word_count} 字），即将去 AI 味…`,
+          reasons.length ? "err" : "ok");
+      } else if (ev.type === "flavor") {
+        if (ev.score != null) {
+          setStatus($("chapter-status"),
+            `原文 AI 味 ${ev.score} 分（阈值 ${ev.threshold}）` +
+            (ev.passed ? "，无需润色。" :
+              ev.borderline ? "，处于边界区间。" : "，准备交给润色 agent。"),
+            ev.passed ? "ok" : "");
+        }
+      } else if (ev.type === "polish_start") {
+        $("chapter-out").textContent = "";
+        setStatus($("chapter-status"), `正在去 AI 味润色（第 ${ev.round} 轮）…`);
+      } else if (ev.type === "polish_delta") {
+        $("chapter-out").textContent += ev.text;
+        $("chapter-out").scrollTop = $("chapter-out").scrollHeight;
+      } else if (ev.type === "polish_replace") {
+        $("chapter-out").textContent = ev.content || "";
+      } else if (ev.type === "polish_done") {
+        showBorderlineButtons({ borderline: ev.borderline });
+        let tip = "AI 味审核未返回评分，保留最新润色稿。";
+        let tone = "err";
+        if (ev.score != null) {
+          if (ev.vetoed) {
+            tip = `AI 味审核：${ev.score} 分，存在严重问题，准备继续润色…`;
+          } else if (ev.passed) {
+            tip = `AI 味审核：${ev.score} 分（阈值 ${ev.threshold}），通过。`;
+            tone = "ok";
+          } else if (ev.borderline) {
+            tip = `AI 味审核：${ev.score} 分（${ev.min_threshold}-${ev.threshold - 1} 区间），可接受或再润色。`;
+            tone = "ok";
+          } else {
+            tip = `AI 味审核：${ev.score} 分（阈值 ${ev.threshold}），未通过，准备再润色…`;
+          }
+        }
+        setStatus($("chapter-status"), tip, tone);
+      } else if (ev.type === "done") {
+        pendingResume = false;
+        novelChapterId = ev.novel_chapter_id;
+        chapterOutlineId = ev.chapter_outline_id;
+        $("btn-write").textContent = "写下一章";
+        showBorderlineButtons(ev.ai_flavor);
+        let doneTip = `本章完成：第 ${ev.chapter_no} 章《${ev.title}》，${ev.word_count} 字`;
+        if (ev.ai_flavor && ev.ai_flavor.score != null) {
+          doneTip += `，AI 味 ${ev.ai_flavor.score} 分`;
+          doneTip += ev.ai_flavor.borderline
+            ? "（可接受或再润色一轮）。" : "。";
+        } else {
+          doneTip += "。";
+        }
+        setStatus($("chapter-status"), doneTip, "ok");
+        $("btn-summary").disabled = false;
+        $("btn-audit").disabled = false;
+        refreshProgress();
+        refreshNextChapter();
+        loadSessions();
+        ensureNextVolume();
+      } else if (ev.type === "summary") {
+        setStatus($("chapter-status"),
+          "本章完成，摘要已自动生成，将用于下一章续写。",
+          "ok");
+        refreshProgress();
+      } else if (ev.type === "warning") {
+        setStatus($("chapter-status"), ev.message, "err");
+      } else if (ev.type === "final_fail") {
+        showChapterIssues("自动重写未通过，原因如下：", ev.reasons);
+        setStatus($("chapter-status"), "自动重写未通过，请查看下方原因后人工修改。", "err");
+      } else if (ev.type === "error") {
+        if (ev.draft) {
+          pendingResume = true;
+          chapterOutlineId = ev.chapter_outline_id;
+          $("btn-write").textContent = "续写本章";
+          $("chapter-tag").textContent = "草稿";
+          showChapterIssues("写作中断，草稿已保存", [
+            ev.message,
+            `已保存第 ${ev.chapter_no} 章《${ev.title || "未命名"}》草稿，共 ${ev.draft_words} 字。`,
+            "修复问题后点「续写本章」，会从草稿断点接着往下写，不会重复前文。",
+          ]);
+          setStatus($("chapter-status"),
+            `写作中断：${ev.message}（草稿 ${ev.draft_words} 字已保存，可续写）`,
+            "err");
+        } else {
+          showChapterIssues("写作失败", [ev.message]);
+          setStatus($("chapter-status"), "写作失败：" + ev.message, "err");
+        }
+      }
+    });
+  } catch (e) {
+    setStatus($("chapter-status"), "请求失败：" + e.message, "err");
+  } finally {
+    busyChapter = false;
+    $("btn-write").disabled = false;
+    refreshNextChapter();
+  }
+}
+
+function segmentSuffix(seg) {
+  if (!seg) return "";
+  return `（本段第 ${seg.seg_index}/${seg.chapter_count} 章）`;
+}
+
+function renderSegmentMeta(data) {
+  const seg = data.segment;
+  const startNo = seg.start_no || data.chapter_no;
+  const endNo = startNo + (seg.chapter_count || 3) - 1;
+  const lines = [
+    `第 ${startNo}–${endNo} 章 · 本段第 ${seg.seg_index}/${seg.chapter_count} 章` +
+      `（第 ${data.volume_no} 卷《${data.volume_title || ""}》）`,
+    `本段开头：${seg.start_state || "未提供"}`,
+    `本段结局：${seg.end_state || "未提供"}`,
+  ];
+  if (seg.mode === "auto") {
+    lines.push("走向：由模型自行处理（本段不再询问）");
+  } else if (seg.choice) {
+    lines.push(`已选走向：${String(seg.choice).split("\n")[0]}`);
+  } else {
+    lines.push("点击「写下一章」后先选择本段走向，三章只需选一次");
+  }
+  const box = $("chapter-meta");
+  box.innerHTML = "";
+  lines.forEach((line) => {
+    const div = document.createElement("div");
+    div.textContent = line;
+    box.appendChild(div);
+  });
+}
+
+async function chooseSegment(seg, note) {
+  if (busyChapter) return;
+  busyChapter = true;
+  $("btn-write").disabled = true;
+  setStatus($("chapter-status"),
+    note ? "正在参考你的想法生成本段 3 个剧情走向…" : "正在生成本段（3 章）的 3 个剧情走向，请稍候…");
+  try {
+    const resp = await fetch("/api/short/options", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        short_id: seg.short_id,
+        note: note || "",
+        session_id: sessionId,
+      }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || "请求失败");
+    renderSegmentOptions(seg, data.options || []);
+    setStatus($("chapter-status"), "请选择本段剧情走向，选定后开始写作。", "ok");
+  } catch (e) {
+    setStatus($("chapter-status"), "剧情走向生成失败：" + e.message, "err");
+  } finally {
+    busyChapter = false;
+    $("btn-write").disabled = false;
+  }
+}
+
+function renderSegmentOptions(seg, options) {
+  const list = $("scene-options");
+  list.innerHTML = "";
+  const hint = $("scene-box").querySelector(".meta");
+  if (hint) hint.textContent = "请选择本段（3 章）的剧情走向，三章只需选一次：";
+  $("segment-note-row").style.display = "";
+  options.forEach((opt, idx) => {
+    const btn = document.createElement("button");
+    btn.className = "ghost";
+    const head = document.createElement("div");
+    head.textContent = `${idx + 1}. ${opt.title}：${opt.summary}`;
+    btn.appendChild(head);
+    (opt.chapters || []).forEach((step, i) => {
+      const line = document.createElement("div");
+      line.className = "meta";
+      line.textContent = `第 ${i + 1} 章：${step}`;
+      btn.appendChild(line);
+    });
+    btn.onclick = () => pickSegment(seg, idx + 1);
+    list.appendChild(btn);
+  });
+  const auto = document.createElement("button");
+  auto.className = "ok";
+  auto.textContent = "让模型自己处理（不指定走向）";
+  auto.onclick = () => pickSegment(seg, null);
+  list.appendChild(auto);
+  $("scene-box").style.display = "";
+}
+
+async function pickSegment(seg, choiceNo, note) {
+  hideScenes();
+  busyChapter = true;
+  $("btn-write").disabled = true;
+  setStatus($("chapter-status"),
+    choiceNo ? "已选定本段走向，正在记录并开始写作…" : "交给模型自行处理，开始写作…");
+  try {
+    const resp = await fetch("/api/short/choice", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        short_id: seg.short_id,
+        choice_no: choiceNo,
+        note: note || "",
+        session_id: sessionId,
+      }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || "保存失败");
+    currentSegment = Object.assign({}, seg, {
+      mode: data.mode,
+      choice: data.choice || "",
+    });
+  } catch (e) {
+    setStatus($("chapter-status"), "走向保存失败：" + e.message, "err");
+    busyChapter = false;
+    $("btn-write").disabled = false;
+    return;
+  }
+  busyChapter = false;
+  startWriting("");
+}
+
+function hideScenes() {
+  $("scene-box").style.display = "none";
+  $("scene-options").innerHTML = "";
+  $("segment-note").value = "";
+}
+
+$("btn-write").onclick = async () => {
+  if (busyChapter) return;
+  if (pendingResume) {
+    startWriting("");
+    return;
+  }
+  if (currentSegment && !currentSegment.mode) {
+    await chooseSegment(currentSegment);
+    return;
+  }
+  startWriting("");
+};
+
+$("btn-segment-note").onclick = () => {
+  if (!currentSegment) { alert("请先点击「写下一章」读取本段信息"); return; }
+  const note = $("segment-note").value.trim();
+  if (!note) { alert("请先写下你希望本段怎么发展"); return; }
+  pickSegment(currentSegment, null, note);
+};
+
+$("btn-segment-regen").onclick = (e) => {
+  e.preventDefault();
+  if (!currentSegment) { alert("请先点击「写下一章」读取本段信息"); return; }
+  const note = $("segment-note").value.trim();
+  if (!note) { alert("请先写下你希望本段怎么发展"); return; }
+  chooseSegment(currentSegment, note);
+};
+
+$("btn-skip-scene").onclick = () => {
+  const note = $("segment-note").value.trim();
+  hideScenes();
+  if (currentSegment && !currentSegment.mode) {
+    pickSegment(currentSegment, null, note);
+    return;
+  }
+  startWriting("");
+};
+
+$("btn-summary").onclick = async () => {
+  if (!novelChapterId) return;
+  setStatus($("chapter-status"), "正在生成摘要…");
+  try {
+    const resp = await fetch("/api/chapter/summarize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ novel_chapter_id: novelChapterId }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || "摘要失败");
+    setStatus($("chapter-status"), "摘要已生成，将用于后续章节续写。", "ok");
+    showResult(`【本章摘要】\n${data.summary}`);
+  } catch (e) {
+    setStatus($("chapter-status"), "摘要失败：" + e.message, "err");
+  }
+};
+
+$("btn-audit").onclick = async () => {
+  if (!novelChapterId) return;
+  setStatus($("chapter-status"), "正在审核（违规 + 一致性 + AI 味）…");
+  try {
+    const resp = await fetch("/api/chapter/audit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ novel_chapter_id: novelChapterId }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || "审核失败");
+    const v = data.violation || {};
+    const c = data.consistency || {};
+    const af = data.ai_flavor || {};
+    const finalOk = data.passed && af.passed !== false;
+    lastContentIssues = [
+      v.passed === false ? `违规问题：${v.issues || "无"}；建议：${v.suggestion || "无"}` : "",
+      c.passed === false ? `细纲/人物问题：${c.issues || "无"}；建议：${c.suggestion || "无"}` : "",
+    ].filter(Boolean).join("\n");
+    lastAiIssues = af.passed === false
+      ? `AI 味问题：${af.issues || "无"}；建议：${af.suggestion || "无"}`
+      : "";
+    lastAuditIssues =
+      `违规审核：${v.issues || "无"}；建议：${v.suggestion || "无"}\n` +
+      `一致性审核：${c.issues || "无"}；建议：${c.suggestion || "无"}\n` +
+      `AI 味审核：${af.issues || "无"}；建议：${af.suggestion || "无"}`;
+    setStatus($("chapter-status"),
+      finalOk ? "审核通过。" : "审核未通过，可按意见重写。",
+      finalOk ? "ok" : "err");
+    showResult(
+      `【结论】${finalOk ? "通过" : "不通过"}\n` +
+      `【风险等级】${v.risk_level || "-"}\n` +
+      `【命中违规词】${v.matched_words || "无"}\n\n` +
+      `【违规问题】${v.issues || "无"}\n【整改建议】${v.suggestion || "无"}\n\n` +
+      `【一致性加权评分】${c.score ?? "-"}（阈值 ${c.threshold ?? 75}）\n` +
+      `【细纲符合】${c.outline_consistency || "-"}（${c.dimension_scores?.outline ?? "-"}分 · 权重 40%）\n` +
+      `【人物符合】${c.character_consistency || "-"}（${c.dimension_scores?.character ?? "-"}分 · 权重 30%）\n` +
+      `【伏笔处理】${c.foreshadow_handling || "-"}（${c.dimension_scores?.foreshadow ?? "-"}分 · 权重 20%）\n` +
+      `【前文连贯】${c.continuity_check || "-"}（${c.dimension_scores?.continuity ?? "-"}分 · 权重 10%）\n` +
+      `【问题】${c.issues || "无"}\n【建议】${c.suggestion || "无"}\n\n` +
+      `【AI 味评分】${af.score ?? "-"}（通过线 ${af.threshold ?? 90}，边界线 ${af.min_threshold ?? 85}）` +
+      `${af.vetoed ? "，有严重问题一票否决" : af.passed ? "，通过" : af.borderline ? "，边界区间" : "，未通过"}` +
+      `${af.rechecked ? "，已复评取平均" : ""}\n` +
+      `【AI 味问题】${af.issues || "无"}\n【AI 味建议】${af.suggestion || "无"}`
+    );
+    $("btn-rewrite").disabled = finalOk;
+    showBorderlineButtons(af);
+    refreshProgress();
+  } catch (e) {
+    setStatus($("chapter-status"), "审核失败：" + e.message, "err");
+  }
+};
+
+$("btn-rewrite").onclick = async () => {
+  if (!novelChapterId || !chapterOutlineId) return;
+  if (busyChapter) return;
+  busyChapter = true;
+  $("btn-rewrite").disabled = true;
+  showBorderlineButtons(null);
+  hideScenes();
+  $("chapter-out").textContent = "";
+  $("chapter-result").style.display = "none";
+  setStatus($("chapter-status"), "正在按审核意见重写本章…");
+
+  try {
+    await streamPost("/api/chapter/stream", {
+      rewrite: true,
+      chapter_outline_id: chapterOutlineId,
+      novel_chapter_id: novelChapterId,
+      audit_issues: lastAuditIssues,
+      content_issues: lastContentIssues,
+      ai_issues: lastAiIssues,
+      scene_choice: "",
+      session_id: sessionId,
+    }, (ev) => {
+      if (ev.type === "delta") {
+        $("chapter-out").textContent += ev.text;
+        $("chapter-out").scrollTop = $("chapter-out").scrollHeight;
+      } else if (ev.type === "replace") {
+        $("chapter-out").textContent = "";
+      } else if (ev.type === "audit") {
+        const reasons = chapterAuditReasons(ev);
+        if (reasons.length) {
+          showChapterIssues("本轮审核未通过，正在自动重写。原因如下：", reasons);
+        }
+        setStatus($("chapter-status"),
+          reasons.length
+            ? "字数或审核未通过，准备自动重写…"
+            : `内容审核通过（${ev.word_count} 字），即将去 AI 味…`,
+          reasons.length ? "err" : "ok");
+      } else if (ev.type === "flavor") {
+        if (ev.score != null) {
+          setStatus($("chapter-status"),
+            `原文 AI 味 ${ev.score} 分（阈值 ${ev.threshold}）` +
+            (ev.passed ? "，无需润色。" :
+              ev.borderline ? "，处于边界区间。" : "，准备交给润色 agent。"),
+            ev.passed ? "ok" : "");
+        }
+      } else if (ev.type === "polish_start") {
+        $("chapter-out").textContent = "";
+        setStatus($("chapter-status"), `正在去 AI 味润色（第 ${ev.round} 轮）…`);
+      } else if (ev.type === "polish_delta") {
+        $("chapter-out").textContent += ev.text;
+        $("chapter-out").scrollTop = $("chapter-out").scrollHeight;
+      } else if (ev.type === "polish_replace") {
+        $("chapter-out").textContent = ev.content || "";
+      } else if (ev.type === "polish_done") {
+        showBorderlineButtons({ borderline: ev.borderline });
+        let tip = "AI 味审核未返回评分，保留最新润色稿。";
+        let tone = "err";
+        if (ev.score != null) {
+          if (ev.vetoed) {
+            tip = `AI 味审核：${ev.score} 分，存在严重问题，准备继续润色…`;
+          } else if (ev.passed) {
+            tip = `AI 味审核：${ev.score} 分（阈值 ${ev.threshold}），通过。`;
+            tone = "ok";
+          } else if (ev.borderline) {
+            tip = `AI 味审核：${ev.score} 分（${ev.min_threshold}-${ev.threshold - 1} 区间），可接受或再润色。`;
+            tone = "ok";
+          } else {
+            tip = `AI 味审核：${ev.score} 分（阈值 ${ev.threshold}），未通过，准备再润色…`;
+          }
+        }
+        setStatus($("chapter-status"), tip, tone);
+      } else if (ev.type === "done") {
+        novelChapterId = ev.novel_chapter_id;
+        chapterOutlineId = ev.chapter_outline_id;
+        showBorderlineButtons(ev.ai_flavor);
+        let reTip = `重写完成：${ev.word_count} 字`;
+        if (ev.ai_flavor && ev.ai_flavor.score != null) {
+          reTip += `，AI 味 ${ev.ai_flavor.score} 分`;
+          reTip += ev.ai_flavor.borderline ? "（可接受或再润色一轮）。" : "。";
+        } else {
+          reTip += "。";
+        }
+        setStatus($("chapter-status"), reTip, "ok");
+        $("btn-summary").disabled = false;
+        $("btn-audit").disabled = false;
+        refreshProgress();
+      } else if (ev.type === "summary") {
+        refreshProgress();
+      } else if (ev.type === "warning") {
+        setStatus($("chapter-status"), ev.message, "err");
+      } else if (ev.type === "final_fail") {
+        showChapterIssues("自动重写未通过，原因如下：", ev.reasons);
+        setStatus($("chapter-status"), "自动重写未通过，请查看下方原因后人工修改。", "err");
+      } else if (ev.type === "error") {
+        setStatus($("chapter-status"), "重写失败：" + ev.message, "err");
+      }
+    });
+  } catch (e) {
+    setStatus($("chapter-status"), "请求失败：" + e.message, "err");
+  } finally {
+    busyChapter = false;
+    $("btn-write").disabled = false;
+  }
+};
+
+function showBorderlineButtons(af) {
+  const show = !!(af && af.borderline);
+  $("btn-polish-again").style.display = show ? "" : "none";
+}
+
+$("btn-polish-again").onclick = async () => {
+  if (!novelChapterId || busyChapter) return;
+  busyChapter = true;
+  showBorderlineButtons(null);
+  const btn = $("btn-polish-again");
+  btn.disabled = true;
+  setStatus($("chapter-status"), "正在再润色一轮，请稍候…");
+  try {
+    const resp = await fetch("/api/chapter/polish", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ novel_chapter_id: novelChapterId }),
+    });
+    const d = await resp.json();
+    if (!resp.ok) throw new Error(d.detail || "请求失败");
+    $("chapter-out").textContent = d.content || "";
+    const af = d.ai_flavor || {};
+    showBorderlineButtons(af);
+    if (d.improved === false) {
+      setStatus($("chapter-status"),
+        `本轮润色未提高评分（${af.score ?? "-"} 分），已保留原稿。`,
+        af.borderline ? "ok" : "err");
+    } else if (af.passed) {
+      setStatus($("chapter-status"),
+        `再润色完成，AI 味 ${af.score} 分，通过。`, "ok");
+    } else if (af.borderline) {
+      setStatus($("chapter-status"),
+        `再润色完成，AI 味 ${af.score} 分，仍在边界区间，可接受或继续润色。`, "ok");
+    } else {
+      setStatus($("chapter-status"),
+        `再润色完成，AI 味 ${af.score} 分，仍未通过，建议按意见重写。`, "err");
+    }
+    refreshProgress();
+  } catch (e) {
+    setStatus($("chapter-status"), "再润色失败：" + e.message, "err");
+  } finally {
+    busyChapter = false;
+    btn.disabled = false;
+  }
+};
+
+function showResult(text) {
+  const box = $("chapter-result");
+  box.textContent = text;
+  box.style.display = "block";
+}
+
+function chapterAuditReasons(ev) {
+  const arr = [];
+  if (!ev.word_ok) arr.push(`本章 ${ev.word_count} 字，不在 2000-3000 字区间内。`);
+  if (!ev.passed && ev.issues) arr.push(ev.issues);
+  if (ev.metaphor_hits && ev.metaphor_hits.length) {
+    arr.push("使用了比喻，必须改为直接动作或状态：" + ev.metaphor_hits.join("；"));
+  }
+  if (ev.contrast_hits && ev.contrast_hits.length) {
+    arr.push("出现「不是……，是……」句式，必须直接写确定的事实：" + ev.contrast_hits.join("；"));
+  }
+  return arr;
+}
+
+function showChapterIssues(title, lines) {
+  const items = (lines || []).map((t, i) => `${i + 1}. ${t}`).join("\n");
+  showResult(title + "\n" + (items || "未返回具体原因"));
+}
+
+(async () => {
+  await loadSessions();
+  if (!sessions.length) {
+    await createSession();
+  } else {
+    const target = sessions.find((s) => s.outline_id) || sessions[0];
+    await switchSession(target.session_id);
+  }
+  refreshUsage();
+})();
+setInterval(refreshProgress, 4000);
+setInterval(refreshUsage, 4000);
+</script>
+</body>
+</html>
